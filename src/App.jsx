@@ -46,10 +46,6 @@ function hexToRgb(hex) {
 
 const paletteRgb = PALETTE.map((color) => ({ ...color, rgb: hexToRgb(color.hex) }));
 
-function normalizeFileName(name) {
-  return name.toLowerCase().replace(/\s+/g, "").replace(/\(\d+\)/g, "");
-}
-
 function clamp255(value) {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
@@ -73,15 +69,6 @@ function nearestPaletteColor(r, g, b) {
     }
   }
   return best;
-}
-
-function readFileAsText(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = reject;
-    reader.readAsText(file);
-  });
 }
 
 function readFileAsDataUrl(file) {
@@ -199,30 +186,17 @@ function getDominantColor(raw, width, bbox) {
   return PALETTE.find((color) => color.id === bestId) || null;
 }
 
-async function loadTemplate(shape, templateFiles) {
+async function loadTemplate(shape) {
   const config = SHAPES[shape];
-  const templateKey = normalizeFileName(config.template);
-  const cellsKey = normalizeFileName(config.cells);
-  const svgFile = templateFiles[templateKey];
-  const jsonFile = templateFiles[cellsKey];
-
-  let svgText;
-  let cells;
-
-  if (svgFile && jsonFile) {
-    svgText = await readFileAsText(svgFile);
-    cells = JSON.parse(await readFileAsText(jsonFile));
-  } else {
-    const [svgResponse, jsonResponse] = await Promise.all([
-      fetch(`/templates/${config.template}`),
-      fetch(`/templates/${config.cells}`),
-    ]);
-    if (!svgResponse.ok || !jsonResponse.ok) {
-      throw new Error(`${config.label} için ${config.template} ve ${config.cells} bulunamadı. Dosyaları yükle veya public/templates klasörüne koy.`);
-    }
-    svgText = await svgResponse.text();
-    cells = await jsonResponse.json();
+  const [svgResponse, jsonResponse] = await Promise.all([
+    fetch(`/templates/${config.template}`),
+    fetch(`/templates/${config.cells}`),
+  ]);
+  if (!svgResponse.ok || !jsonResponse.ok) {
+    throw new Error(`${config.label} için ${config.template} veya ${config.cells} bulunamadı. public/templates klasörünü kontrol et.`);
   }
+  const svgText = await svgResponse.text();
+  const cells = await jsonResponse.json();
 
   return {
     shape,
@@ -414,7 +388,6 @@ function SvgPreview({ svg }) {
 }
 
 export default function RenkAtlasApp() {
-  const [templateFiles, setTemplateFiles] = useState({});
   const [shape, setShape] = useState("square");
   const [file, setFile] = useState(null);
   const [view, setView] = useState("numbers");
@@ -432,7 +405,7 @@ export default function RenkAtlasApp() {
     setResult(null);
     setDownloadLinks([]);
 
-    loadTemplate(shape, templateFiles)
+    loadTemplate(shape)
       .then(async (loadedTemplate) => {
         if (cancelled) return;
         setTemplate(loadedTemplate);
@@ -454,7 +427,7 @@ export default function RenkAtlasApp() {
     return () => {
       cancelled = true;
     };
-  }, [shape, file, templateFiles]);
+  }, [shape, file]);
 
   const outputSvgs = useMemo(() => {
     if (!template || !result) return null;
@@ -481,15 +454,6 @@ export default function RenkAtlasApp() {
     return "Renk Talimatları";
   }, [view]);
 
-  function handleTemplateFilesUpload(event) {
-    const files = Array.from(event.target.files || []);
-    const next = {};
-    files.forEach((file) => {
-      next[normalizeFileName(file.name)] = file;
-    });
-    setTemplateFiles(next);
-  }
-
   function handleDownloadAll() {
     if (!outputSvgs || !template) return;
     const files = [
@@ -505,8 +469,6 @@ export default function RenkAtlasApp() {
     });
   }
 
-  const templateCount = Object.keys(templateFiles).length;
-
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-6xl px-5 py-6">
@@ -517,10 +479,6 @@ export default function RenkAtlasApp() {
               <p className="mt-1 text-sm text-zinc-300">SVG şablonlu sistem: kare, altıgen, daire, üçgen. Seçili şeklin 4 sayfası indirilebilir.</p>
             </div>
             <div className="flex flex-col gap-2 md:flex-row">
-              <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-amber-200 px-5 py-3 font-bold text-zinc-950 hover:bg-amber-100">
-                Şablonları Yükle
-                <input type="file" accept=".svg,.json" multiple className="hidden" onChange={handleTemplateFilesUpload} />
-              </label>
               <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-white px-5 py-3 font-bold text-zinc-950 hover:bg-zinc-200">
                 Görsel Yükle
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
@@ -529,7 +487,7 @@ export default function RenkAtlasApp() {
           </div>
 
           <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-zinc-200">
-            Yüklenen şablon dosyası: <b>{templateCount}</b>/8. Canvas içinde çalışırken 8 dosyayı birlikte seç: square/hex/circle/triangle template SVG + cells JSON.
+            Şablonlar uygulamaya dahildir. Sadece görsel yükleyip şekil seçmen yeterli.
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -558,8 +516,8 @@ export default function RenkAtlasApp() {
         {!file && status !== "error" && (
           <div className="flex min-h-[520px] items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[0.03] text-center">
             <div>
-              <p className="text-xl font-bold">Başlamak için şablonları ve görseli yükle</p>
-              <p className="mt-2 text-zinc-400">Gerçek projede dosyaları public/templates klasörüne koyarsan şablon yükleme gerekmez.</p>
+              <p className="text-xl font-bold">Başlamak için bir görsel yükle</p>
+              <p className="mt-2 text-zinc-400">Şablonlar hazır. Başlamak için bir görsel yükle.</p>
             </div>
           </div>
         )}
