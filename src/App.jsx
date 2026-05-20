@@ -287,9 +287,28 @@ function serializeSvg(doc) {
   return new XMLSerializer().serializeToString(doc);
 }
 
+function setBlackSvgBackground(doc, svg, viewBox) {
+  const background = doc.getElementById("background");
+  if (background) {
+    background.setAttribute("fill", "#000000");
+    return;
+  }
+
+  const rect = doc.createElementNS(SVG_NS, "rect");
+  rect.setAttribute("id", "background");
+  rect.setAttribute("x", String(viewBox.minX));
+  rect.setAttribute("y", String(viewBox.minY));
+  rect.setAttribute("width", String(viewBox.width));
+  rect.setAttribute("height", String(viewBox.height));
+  rect.setAttribute("fill", "#000000");
+  svg.insertBefore(rect, svg.firstChild);
+}
+
 function makePatternSvg(template, result, mode) {
   const doc = parseSvg(template.svgText);
   const svg = doc.documentElement;
+
+  setBlackSvgBackground(doc, svg, template.viewBox);
 
   template.cells.forEach((cell) => {
     const el = doc.getElementById(cell.id);
