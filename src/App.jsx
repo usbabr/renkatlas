@@ -1,28 +1,28 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 const PALETTE = [
-  { id: 1, name: "Siyah", hex: "#111111" },
-  { id: 2, name: "Gri", hex: "#9B9B9B" },
-  { id: 3, name: "Koyu Kahve", hex: "#5A3A22" },
-  { id: 4, name: "Kahverengi", hex: "#7A5A3A" },
-  { id: 5, name: "Bej", hex: "#D9C59E" },
-  { id: 6, name: "Şeftali", hex: "#F4A98B" },
-  { id: 7, name: "Kırmızı", hex: "#C73434" },
-  { id: 8, name: "Kırmızı Turuncu", hex: "#E04B37" },
-  { id: 9, name: "Turuncu", hex: "#F47C2C" },
-  { id: 10, name: "Sarı Turuncu", hex: "#F7B13B" },
-  { id: 11, name: "Sarı", hex: "#F6D94A" },
-  { id: 12, name: "Sarı Yeşil", hex: "#C7D94A" },
-  { id: 13, name: "Yeşil", hex: "#22C55E" },
-  { id: 14, name: "Koyu Yeşil", hex: "#2E7D4F" },
-  { id: 15, name: "Su Yeşili", hex: "#33C7A5" },
-  { id: 16, name: "Açık Mavi", hex: "#7EC7E6" },
-  { id: 17, name: "Mavi", hex: "#3E7BBE" },
-  { id: 18, name: "Koyu Mavi", hex: "#39479D" },
-  { id: 19, name: "Pembe", hex: "#F58CB5" },
-  { id: 20, name: "Mor", hex: "#8B5CF6" },
-  { id: 21, name: "Koyu Mor", hex: "#6D3BB8" },
-  { id: 22, name: "Macenta / Fuşya", hex: "#E245A3" },
+  { id: 1, code: "120", name: "Siyah", hex: "#111111" },
+  { id: 2, code: "CG5", name: "Soğuk Gri", hex: "#6F7A82" },
+  { id: 3, code: "WG5", name: "Sıcak Gri", hex: "#746B62" },
+  { id: 4, code: "95", name: "Koyu Kahverengi", hex: "#7A4938" },
+  { id: 5, code: "26", name: "Pastel Şeftali", hex: "#F1D2B6" },
+  { id: 6, code: "121", name: "Mercan Kırmızı", hex: "#FF5A7D" },
+  { id: 7, code: "10", name: "Derin Kırmızı", hex: "#C92E46" },
+  { id: 8, code: "GG5", name: "Yeşil Gri", hex: "#748F8B" },
+  { id: 9, code: "24", name: "Marigold", hex: "#F0A33A" },
+  { id: 10, code: "33", name: "Melon Sarı", hex: "#FFD05A" },
+  { id: 11, code: "37", name: "Pastel Sarı", hex: "#F4E66D" },
+  { id: 12, code: "41", name: "Zeytin Yeşili", hex: "#879448" },
+  { id: 13, code: "48", name: "Sarı Yeşil", hex: "#8DD952" },
+  { id: 14, code: "53", name: "Turkuaz Yeşil", hex: "#20B7B3" },
+  { id: 15, code: "59", name: "Soluk Yeşil", hex: "#45D3A5" },
+  { id: 16, code: "42", name: "Koyu Yeşil", hex: "#566B3A" },
+  { id: 17, code: "66", name: "Bebek Mavisi", hex: "#43B9F2" },
+  { id: 18, code: "71", name: "Kobalt Mavi", hex: "#3266D9" },
+  { id: 19, code: "BR", name: "Kahverengi", hex: "#A8664F" },
+  { id: 20, code: "81", name: "Derin Mor", hex: "#6630B8" },
+  { id: 21, code: "46", name: "Canlı Yeşil", hex: "#18B875" },
+  { id: 22, code: "141", name: "Fuşya", hex: "#E83D9A" },
 ];
 
 const SHAPES = {
@@ -52,7 +52,9 @@ function clamp255(value) {
 
 function isWhitePixel(r, g, b, a = 255) {
   if (a < 16) return true;
-  return r > 242 && g > 242 && b > 242;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  return r > 232 && g > 232 && b > 224 && max - min < 28;
 }
 
 function nearestPaletteColor(r, g, b) {
@@ -210,8 +212,13 @@ async function loadTemplate(shape) {
 }
 
 async function processImage(file, template) {
-  const originalSrc = await readFileAsDataUrl(file);
-  const img = await loadImage(originalSrc);
+  const imageUrl = URL.createObjectURL(file);
+  let img;
+  try {
+    img = await loadImage(imageUrl);
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
   const { width, height } = template.viewBox;
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -231,6 +238,17 @@ async function processImage(file, template) {
 
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(img, drawX, drawY, drawW, drawH);
+
+  const originalCanvas = document.createElement("canvas");
+  originalCanvas.width = width;
+  originalCanvas.height = height;
+  const originalCtx = originalCanvas.getContext("2d");
+  if (!originalCtx) throw new Error("Canvas context oluşturulamadı.");
+  originalCtx.fillStyle = "#000000";
+  originalCtx.fillRect(0, 0, width, height);
+  originalCtx.imageSmoothingEnabled = true;
+  originalCtx.drawImage(img, drawX, drawY, drawW, drawH);
+  const originalSrc = originalCanvas.toDataURL("image/jpeg", 0.9);
 
   const imageData = ctx.getImageData(0, 0, width, height);
   applyOrderedDither(imageData.data, width, height, DEFAULT_DITHER);
@@ -319,13 +337,10 @@ function makePatternSvg(template, result, mode) {
 
 function makeOriginalSvg(template, result) {
   const { width, height } = template.viewBox;
-  const { x, y, width: w, height: h } = template.bounds;
-  const clipId = `clip_${template.shape}`;
   return `
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${width} ${height}">
   <rect width="${width}" height="${height}" fill="#000000"/>
-  <defs><clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath></defs>
-  <image href="${result.originalSrc}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>
+  <image href="${result.originalSrc}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none"/>
 </svg>`;
 }
 
@@ -362,7 +377,8 @@ function makePaletteSvg(template, used) {
         ${testRects}
         <rect x="${cx - s / 2}" y="${cy - s / 2}" width="${s}" height="${s}" rx="5" fill="${color.hex}" stroke="#ffffff" stroke-width="3"/>
         <text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="900" font-size="15" fill="#ffffff">${color.id}</text>
-        <text x="${cx}" y="${y + 150}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="900" font-size="24" fill="#ffffff">${color.name}</text>
+        <text x="${cx}" y="${y + 138}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="900" font-size="22" fill="#ffffff">${color.name}</text>
+        <text x="${cx}" y="${y + 168}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="800" font-size="18" fill="#bdbdbd">${color.code || ""}</text>
       </g>`;
   }).join("");
 
@@ -481,7 +497,15 @@ export default function RenkAtlasApp() {
             <div className="flex flex-col gap-2 md:flex-row">
               <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-white px-5 py-3 font-bold text-zinc-950 hover:bg-zinc-200">
                 Görsel Yükle
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    setFile(e.target.files?.[0] || null);
+                    e.target.value = "";
+                  }}
+                />
               </label>
             </div>
           </div>
