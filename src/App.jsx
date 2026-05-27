@@ -1,28 +1,29 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 const PALETTE = [
-  { id: 1, code: "120", name: "Siyah", hex: "#111111" },
-  { id: 2, code: "CG5", name: "Soğuk Gri", hex: "#6F7A82" },
-  { id: 3, code: "WG5", name: "Sıcak Gri", hex: "#746B62" },
-  { id: 4, code: "95", name: "Koyu Kahverengi", hex: "#7A4938" },
-  { id: 5, code: "26", name: "Pastel Şeftali", hex: "#F1D2B6" },
-  { id: 6, code: "121", name: "Mercan Kırmızı", hex: "#FF5A7D" },
-  { id: 7, code: "10", name: "Derin Kırmızı", hex: "#C92E46" },
-  { id: 8, code: "GG5", name: "Yeşil Gri", hex: "#748F8B" },
-  { id: 9, code: "24", name: "Marigold", hex: "#F0A33A" },
-  { id: 10, code: "33", name: "Melon Sarı", hex: "#FFD05A" },
-  { id: 11, code: "37", name: "Pastel Sarı", hex: "#F4E66D" },
-  { id: 12, code: "41", name: "Zeytin Yeşili", hex: "#879448" },
-  { id: 13, code: "48", name: "Sarı Yeşil", hex: "#8DD952" },
-  { id: 14, code: "53", name: "Turkuaz Yeşil", hex: "#20B7B3" },
-  { id: 15, code: "59", name: "Soluk Yeşil", hex: "#45D3A5" },
-  { id: 16, code: "42", name: "Koyu Yeşil", hex: "#566B3A" },
-  { id: 17, code: "66", name: "Bebek Mavisi", hex: "#43B9F2" },
-  { id: 18, code: "71", name: "Kobalt Mavi", hex: "#3266D9" },
-  { id: 19, code: "BR", name: "Kahverengi", hex: "#A8664F" },
-  { id: 20, code: "81", name: "Derin Mor", hex: "#6630B8" },
-  { id: 21, code: "46", name: "Canlı Yeşil", hex: "#18B875" },
-  { id: 22, code: "141", name: "Fuşya", hex: "#E83D9A" },
+  { id: 1, name: "Siyah", hex: "#1A1A1A" },
+  { id: 2, name: "Antrasit", hex: "#3D434D" },
+  { id: 3, name: "Orta Gri", hex: "#7E848C" },
+  { id: 4, name: "Açık Bej", hex: "#EDD9BC" },
+  { id: 5, name: "Koyu Kahve", hex: "#5C3924" },
+  { id: 6, name: "Sıcak Kahverengi", hex: "#A86A47" },
+  { id: 7, name: "Bordo", hex: "#7A1F2E" },
+  { id: 8, name: "Kırmızı", hex: "#D72A3F" },
+  { id: 9, name: "Şeftali Pembe", hex: "#FF8E8E" },
+  { id: 10, name: "Turuncu", hex: "#EF7B25" },
+  { id: 11, name: "Sarı Turuncu", hex: "#FFB347" },
+  { id: 12, name: "Sarı", hex: "#F9DC52" },
+  { id: 13, name: "Koyu Yeşil", hex: "#2D5938" },
+  { id: 14, name: "Zeytin", hex: "#7A8F3A" },
+  { id: 15, name: "Açık Yeşil", hex: "#7CC95B" },
+  { id: 16, name: "Koyu Turkuaz", hex: "#157570" },
+  { id: 17, name: "Turkuaz", hex: "#3FEBB6" },
+  { id: 18, name: "Koyu Mavi", hex: "#1E4BA8" },
+  { id: 19, name: "Açık Mavi", hex: "#5BBAEC" },
+  { id: 20, name: "Mor", hex: "#5A2E9E" },
+  { id: 21, name: "Lila", hex: "#A77BD8" },
+  { id: 22, name: "Macenta", hex: "#D63A8E" },
+  { id: 0, name: "Beyaz", hex: "#FFFFFF", paper: true },
 ];
 
 const SHAPES = {
@@ -185,7 +186,8 @@ function getDominantColor(raw, width, bbox) {
       bestId = id;
     }
   });
-  return PALETTE.find((color) => color.id === bestId) || null;
+  const color = PALETTE.find((color) => color.id === bestId) || null;
+  return color?.paper ? null : color;
 }
 
 async function loadTemplate(shape) {
@@ -261,7 +263,7 @@ async function processImage(file, template) {
   template.cells.forEach((cell) => {
     const color = getDominantColor(raw, width, cell.bbox);
     cellResults.set(cell.id, color);
-    if (color) used.set(color.id, color);
+    if (color && !color.paper) used.set(color.id, color);
   });
 
   return {
@@ -377,8 +379,7 @@ function makePaletteSvg(template, used) {
         ${testRects}
         <rect x="${cx - s / 2}" y="${cy - s / 2}" width="${s}" height="${s}" rx="5" fill="${color.hex}" stroke="#ffffff" stroke-width="3"/>
         <text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="900" font-size="15" fill="#ffffff">${color.id}</text>
-        <text x="${cx}" y="${y + 138}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="900" font-size="22" fill="#ffffff">${color.name}</text>
-        <text x="${cx}" y="${y + 168}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="800" font-size="18" fill="#bdbdbd">${color.code || ""}</text>
+        <text x="${cx}" y="${y + 150}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="900" font-size="24" fill="#ffffff">${color.name}</text>
       </g>`;
   }).join("");
 
