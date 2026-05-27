@@ -35,6 +35,7 @@ const SHAPES = {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DEFAULT_DITHER = 0.42;
+const MIN_COLOR_CELL_COUNT = 5;
 
 function hexToRgb(hex) {
   const clean = hex.replace("#", "");
@@ -72,6 +73,75 @@ function nearestPaletteColor(r, g, b) {
     }
   }
   return best;
+}
+
+function colorDistance(a, b) {
+  const ar = a.rgb?.r ?? hexToRgb(a.hex).r;
+  const ag = a.rgb?.g ?? hexToRgb(a.hex).g;
+  const ab = a.rgb?.b ?? hexToRgb(a.hex).b;
+  const br = b.rgb?.r ?? hexToRgb(b.hex).r;
+  const bg = b.rgb?.g ?? hexToRgb(b.hex).g;
+  const bb = b.rgb?.b ?? hexToRgb(b.hex).b;
+  const dr = ar - br;
+  const dg = ag - bg;
+  const db = ab - bb;
+  return dr * dr + dg * dg + db * db;
+}
+
+function nearestColorFrom(color, candidates) {
+  let best = candidates[0];
+  let bestDist = Infinity;
+  candidates.forEach((candidate) => {
+    const dist = colorDistance(color, candidate);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = candidate;
+    }
+  });
+  return best;
+}
+
+function removeRareColors(cellResults) {
+  const counts = new Map();
+  cellResults.forEach((color) => {
+    if (!color || color.paper) return;
+    counts.set(color.id, (counts.get(color.id) || 0) + 1);
+  });
+
+  const commonColors = Array.from(counts.entries())
+    .filter(([, count]) => count >= MIN_COLOR_CELL_COUNT)
+    .map(([id]) => PALETTE.find((color) => color.id === id))
+    .filter(Boolean);
+
+  if (!commonColors.length) return cellResults;
+
+  const replacements = new Map();
+  counts.forEach((count, id) => {
+    if (count >= MIN_COLOR_CELL_COUNT) return;
+    const color = PALETTE.find((item) => item.id === id);
+    if (!color) return;
+    replacements.set(id, nearestColorFrom(color, commonColors));
+  });
+
+  if (!replacements.size) return cellResults;
+
+  const cleaned = new Map();
+  cellResults.forEach((color, cellId) => {
+    if (color && replacements.has(color.id)) {
+      cleaned.set(cellId, replacements.get(color.id));
+    } else {
+      cleaned.set(cellId, color);
+    }
+  });
+  return cleaned;
+}
+
+function getUsedColors(cellResults) {
+  const used = new Map();
+  cellResults.forEach((color) => {
+    if (color && !color.paper) used.set(color.id, color);
+  });
+  return Array.from(used.values()).sort((a, b) => a.id - b.id);
 }
 
 function readFileAsDataUrl(file) {
@@ -258,18 +328,18 @@ async function processImage(file, template) {
 
   const raw = ctx.getImageData(0, 0, width, height).data;
   const cellResults = new Map();
-  const used = new Map();
 
   template.cells.forEach((cell) => {
     const color = getDominantColor(raw, width, cell.bbox);
     cellResults.set(cell.id, color);
-    if (color && !color.paper) used.set(color.id, color);
   });
+
+  const cleanedCellResults = removeRareColors(cellResults);
 
   return {
     originalSrc,
-    cellResults,
-    used: Array.from(used.values()).sort((a, b) => a.id - b.id),
+    cellResults: cleanedCellResults,
+    used: getUsedColors(cleanedCellResults),
   };
 }
 
