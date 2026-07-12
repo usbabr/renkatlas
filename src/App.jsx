@@ -27,10 +27,10 @@ const PALETTE = [
 ];
 
 const SHAPES = {
-  square: { label: "Kare", template: "square_template.svg", cells: "square_cells.json", font: 15 },
-  hex: { label: "Altıgen", template: "hex_template.svg", cells: "hex_cells.json", font: 15 },
-  circle: { label: "Daire", template: "circle_template.svg", cells: "circle_cells.json", font: 15 },
-  triangle: { label: "Üçgen", template: "triangle_template.svg", cells: "triangle_cells.json", font: 15 },
+  square: { label: "Kare", template: "square_template.svg", cells: "square_cells.json", font: 16 },
+  hex: { label: "Altıgen", template: "hex_template.svg", cells: "hex_cells.json", font: 16 },
+  circle: { label: "Daire", template: "circle_template.svg", cells: "circle_cells.json", font: 16 },
+  triangle: { label: "Üçgen", template: "triangle_template.svg", cells: "triangle_cells.json", font: 14.7 },
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -368,6 +368,14 @@ function setBlackSvgBackground(doc, svg, viewBox) {
   svg.insertBefore(rect, svg.firstChild);
 }
 
+function getNumberY(template, cell) {
+  if (template.shape !== "triangle") return cell.cy + 1;
+  const [, y, , h] = cell.bbox;
+  const middleY = y + h / 2;
+  const offset = h * 0.01;
+  return cell.cy < middleY ? cell.cy - offset : cell.cy + offset;
+}
+
 function makePatternSvg(template, result, mode) {
   const doc = parseSvg(template.svgText);
   const svg = doc.documentElement;
@@ -384,7 +392,7 @@ function makePatternSvg(template, result, mode) {
   if (mode === "numbers") {
     const group = doc.createElementNS(SVG_NS, "g");
     group.setAttribute("id", "renkatlas_numbers");
-    group.setAttribute("font-family", "Arial, sans-serif");
+    group.setAttribute("font-family", "Verdana, Arial, sans-serif");
     group.setAttribute("font-weight", "700");
     group.setAttribute("font-size", String(template.font));
     group.setAttribute("fill", "#4A4A4A");
@@ -396,7 +404,7 @@ function makePatternSvg(template, result, mode) {
       if (!color) return;
       const text = doc.createElementNS(SVG_NS, "text");
       text.setAttribute("x", String(cell.cx));
-      text.setAttribute("y", String(cell.cy + 1));
+      text.setAttribute("y", String(getNumberY(template, cell)));
       text.textContent = String(color.id);
       group.appendChild(text);
     });
